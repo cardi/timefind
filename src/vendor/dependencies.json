@@ -9,12 +9,12 @@
             "Rev": "3b137f113d82e0851ddf701b7c6dde5e58d417f2"
         },
         {
-            "ImportPath": "woozle.org/neale/g.cgi/net/go-pcap.git",
-            "Rev": "a60bbeb1aa485acbd90601f3817c02d3a43438ab"
+            "ImportPath": "github.com/xi2/xz",
+            "Rev": "48954b6210f8d154cb5f8484d3a3e1f83489309e"
         },
         {
-            "ImportPath": "xi2.org/x/xz",
-            "Rev": "1eb5cd4771bafe73c4a9389ec40818023f2f8c6a"
+            "ImportPath": "woozle.org/neale/g.cgi/net/go-pcap.git",
+            "Rev": "a60bbeb1aa485acbd90601f3817c02d3a43438ab"
         }
     ]
 }

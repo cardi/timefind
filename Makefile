@@ -110,7 +110,7 @@ else
 		--exclude "$(TV)/src/timefind/timefind" \
 		--exclude "$(TV)/src/timefind/indexer/indexer" \
 		--exclude "$(TV)/src/timefind/indexer/tests" \
-		--exclude "$(TV)/src/vendor/xi2.org/x/xz/testdata" \
+		--exclude "$(TV)/src/vendor/github.com/xi2/xz/testdata" \
 		-czvf timefind-$(VERSION).tar.gz \
 		$(TV)/CHANGELOG \
 		$(TV)/CONTRIBUTORS \

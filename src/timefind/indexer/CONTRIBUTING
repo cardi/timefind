@@ -41,5 +41,5 @@ Dependencies
 ============
 
     go get woozle.org/neale/g.cgi/net/go-pcap.git
-    go get xi2.org/x/xz
+    go get github.com/xi2/xz
     go get github.com/pborman/getopt
