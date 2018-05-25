@@ -1,3 +1,23 @@
+2018-05-24  Calvin Ardi  <calvin@isi.edu>
+
+    * v1.0.3 -> v1.0.4
+
+    * Fixed a bug where indexer would segfault if a processor doesn't exist. It
+      should now complain appropriately.
+
+    * indexer should continue processing (rather than error out) if while
+      reading an input file results in an error.
+
+    * New script to split index files into a recursive structure. (Wes)
+
+    * Better documentation and build fixes. (Wes)
+
+    * Dependencies now managed by dep.
+
+    * Update import paths for various dependencies.
+
+    * Update CONTRIBUTORS.
+
 2016-09-23  Calvin Ardi  <calvin@isi.edu>
 
     * v1.0.2.5 -> v1.0.3

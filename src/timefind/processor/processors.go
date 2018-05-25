@@ -14,9 +14,9 @@ import (
 
 	tf_time "timefind/time"
 
+	"github.com/dirtbags/go-pcap"
 	mrt "github.com/kaorimatz/go-mrt"
 	"github.com/xi2/xz"
-	"woozle.org/neale/g.cgi/net/go-pcap.git"
 )
 
 // An internal counter for debugging purposes

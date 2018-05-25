@@ -2,7 +2,6 @@ package index
 
 import (
 	"encoding/csv"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -45,15 +44,19 @@ func vlog(format string, a ...interface{}) {
 // contents of the index from an existing file. To fully populate it from new or
 // updated data files, use the 'update' method
 func NewIndex(cfg *config.Configuration) (*Index, error) {
-
 	return subIndex(cfg, "")
-
 }
 
-func subIndex(cfg *config.Configuration,
-	subDir string) (*Index, error) {
+func subIndex(cfg *config.Configuration, subDir string) (*Index, error) {
 	// cfg - Configuration file
 	// subDir - What subDirectory we're on in our indexing.
+
+	// Make sure a reasonable processor exists
+	// Do this first because there's no point in continuing if we don't have
+	// a data processor
+	if _, ok := processor.Processors[cfg.Type]; ok != true {
+		return nil, fmt.Errorf("Configuration specified unknown data type: %s.", cfg.Type)
+	}
 
 	filename := filepath.Join(cfg.IndexDir, subDir, cfg.Name+".csv")
 
@@ -69,14 +72,11 @@ func subIndex(cfg *config.Configuration,
 	// Open the index file for reading.
 	f, err := os.Open(filename)
 	if err != nil {
+		// If index file doesn't exist, we return here
+		// (but we'll be back because we call Update())
 		return idx, nil
 	}
 	defer f.Close()
-
-	// Make sure a reasonable processor exists
-	if _, ok := processor.Processors[cfg.Type]; ok != true {
-		return nil, errors.New("Configuration specified unknown data type.")
-	}
 
 	idxStat, err := os.Stat(filename)
 	idx.Modified = idxStat.ModTime()
@@ -178,8 +178,12 @@ func (idx *Index) Update() error {
 
 	subDirs := make(map[string]bool)
 
-	// We tested to make sure this existed on instantiation
-	process, _ := processor.Processors[idx.Config.Type]
+	// We tested to make sure this existed on instantiation,
+	// but we'll check again
+	process, ok := processor.Processors[idx.Config.Type]
+	if ok != true {
+		return fmt.Errorf("Configuration specified unknown data type: %s.", idx.Config.Type)
+	}
 
 	// Process each data directory in our cfgs
 	for _, base_dir := range idx.Config.Paths {
@@ -223,7 +227,11 @@ func (idx *Index) Update() error {
 				log.Print("Processing data file ", full_path)
 				period, err := process(full_path)
 				if err != nil {
-					return err
+					// We shouldn't disrupt the entire process just because we
+					// couldn't process a particular file!
+					log.Print("ack! Skipping data file ", full_path)
+					continue
+					//return err
 				}
 
 				entry.Period = period

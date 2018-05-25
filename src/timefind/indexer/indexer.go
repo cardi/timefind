@@ -1,11 +1,11 @@
 package main
 
 import (
-	"timefind/index"
 	"log"
 	"os"
 	"runtime"
 	"timefind/config"
+	"timefind/index"
 
 	"github.com/pborman/getopt"
 )

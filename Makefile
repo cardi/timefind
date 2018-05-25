@@ -110,7 +110,6 @@ else
 		--exclude "$(TV)/src/timefind/timefind" \
 		--exclude "$(TV)/src/timefind/indexer/indexer" \
 		--exclude "$(TV)/src/timefind/indexer/tests" \
-		--exclude "$(TV)/src/vendor/github.com/xi2/xz/testdata" \
 		-czvf timefind-$(VERSION).tar.gz \
 		$(TV)/CHANGELOG \
 		$(TV)/CONTRIBUTORS \
@@ -119,8 +118,7 @@ else
 		$(TV)/Makefile \
 		$(TV)/README.timefind \
 		$(TV)/src/timefind \
-		$(TV)/src/timefind_lander_indexer \
-		$(TV)/src/vendor
+		$(TV)/src/timefind_lander_indexer
 	rm -f $(TV)
 endif
 
