@@ -1,12 +1,12 @@
-.PHONY: build check-version symlink-vendor timefind-man-pages
+.PHONY: build timefind-man-pages
 
 SHELL=/bin/bash
 
 #
 # XXX make sure to tag your releases! See CONTRIBUTING.
 #
-VERSION=$(shell git describe --tags --abbrev=0)
-VERSION_FULL=$(shell git describe --tags)
+VERSION=$(shell git describe --tags --abbrev=0 | cut -c 2-)
+VERSION_FULL=$(shell git describe --tags | cut -c 2-)
 
 # test equality
 VERSION_MATCH=$(shell ([ "$(VERSION)" == "$(VERSION_FULL)" ] && echo "1") || echo "0")
@@ -20,45 +20,20 @@ MANDIR=$(DESTDIR)$(PREFIX)/share/man
 MAN1DIR=$(DESTDIR)$(PREFIX)/share/man/man1
 
 export GOPATH := ${PWD}
-export GO15VENDOREXPERIMENT := 1
 
 SYMLINK_VENDOR=0
 VENDOR_DIRS=
 
-all:: check-version symlink-vendor bin/timefind bin/timefind_indexer symlink-clean timefind-man-pages
-
-check-version:
-	@go version > /dev/null || (echo "Go not found. You need to install go: http://golang.org/doc/install"; false)
-ifneq ($(OLDGO),1)
-	$(eval GOVERSION := $(shell go version | egrep -o 'go1.[0-9](.[0-9])?' | sed 's/go//'))
-	@go version | grep -q 'go version go1.[5-9]' || \
-		(echo "go1.5 (or higher) is recommended, you are running go$(GOVERSION)"; \
-		 echo "Run \"make OLDGO=1\" to compile using go$(GOVERSION)"; false)
-endif
-
-symlink-vendor:
-ifeq ($(OLDGO),1)
-	$(eval VENDOR_DIRS := $(sort $(dir $(filter %/, $(wildcard ./src/vendor/*/)))))
-	@$(foreach dir, $(VENDOR_DIRS), \
-		echo "creating symlink from ./src/$(notdir $(dir:%/=%)) to $(dir)"; \
-		ln -f -s vendor/$(notdir $(dir:%/=%)) ./src/$(notdir $(dir:%/=%));)
-endif
+all:: bin/timefind bin/timefind_indexer timefind-man-pages
 
 test:
 	pushd src/timefind; go test ./...
 
 bin/timefind: clean
-	go build -o ./bin/timefind ./src/timefind
+	go build -ldflags "-X main.TimefindTimestamp=`date -u +%Y-%m-%dT%H:%M:%S` -X main.TimefindCommit=`git rev-parse HEAD`" -o ./bin/timefind ./src/timefind
 
 bin/timefind_indexer: clean
-	go build -o ./bin/timefind_indexer ./src/timefind/indexer
-
-symlink-clean:
-ifeq ($(OLDGO),1)
-	@$(foreach dir, $(VENDOR_DIRS), \
-		echo "removing symlink from ./src/$(notdir $(dir:%/=%))"; \
-		rm ./src/$(notdir $(dir:%/=%));)
-endif
+	go build -ldflags "-X main.IndexerTimestamp=`date -u +%Y-%m-%dT%H:%M:%S` -X main.IndexerCommit=`git rev-parse HEAD`" -o ./bin/timefind_indexer ./src/timefind/indexer
 
 # build is really "install.local"
 # and for if you run locally
@@ -81,7 +56,7 @@ install_programs: bin/timefind bin/timefind_indexer
 install_READMEs:
 	-mkdir -p $(DOCDIR)
 	cp ./src/timefind/README $(DOCDIR)/README.timefind
-	cp ./src/indexer/README $(DOCDIR)/README.timefind_indexer
+	cp ./src/timefind/indexer/README $(DOCDIR)/README.timefind_indexer
 
 install_LICENSE:
 	-mkdir -p $(DOCDIR)

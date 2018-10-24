@@ -79,11 +79,13 @@ func main() {
 	getopt.BoolVarLong(&listTimes, "times", 't', "Output the start and end time for each path")
 	getopt.BoolVarLong(&humanTimes, "human", 'T', "Output human-readable start and end time for each path")
 	help := getopt.BoolLong("help", 'h', "Show this help message and exit")
+	version := getopt.BoolLong("version", 0, "Prints the version")
 
 	getopt.SetParameters("SOURCE [SOURCE ...]")
 	getopt.Parse()
 
 	getopt.SetUsage(func() {
+		fmt.Fprintf(os.Stderr, "timefind v%s (%s, %s)\n", TimefindVersion, TimefindTimestamp, TimefindCommit)
 		getopt.PrintUsage(os.Stderr)
 		fmt.Fprintf(os.Stderr,
 			`
@@ -99,6 +101,11 @@ TIMESTAMP must be in one of the following formats:
 
 	if *help {
 		getopt.Usage()
+		os.Exit(0)
+	}
+
+	if *version {
+		fmt.Fprintf(os.Stderr, "timefind v%s (%s, %s)\n", TimefindVersion, TimefindTimestamp, TimefindCommit)
 		os.Exit(0)
 	}
 

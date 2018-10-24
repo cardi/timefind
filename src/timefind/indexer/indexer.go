@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"runtime"
@@ -22,11 +23,22 @@ func main() {
 		"REQUIRED: Path to configuration file (can be used multiple times)", "PATH")
 	getopt.BoolVarLong(&verbose, "verbose", 'v', "Verbose progress indicators and messages")
 	help := getopt.BoolLong("help", 'h', "Show this help message and exit")
+	version := getopt.BoolLong("version", 0, "Prints the version")
 	getopt.SetParameters("")
 	getopt.Parse()
 
+	getopt.SetUsage(func() {
+		fmt.Fprintf(os.Stderr, "indexer v%s (%s, %s)\n", IndexerVersion, IndexerTimestamp, IndexerCommit)
+		getopt.PrintUsage(os.Stderr)
+	})
+
 	if *help {
 		getopt.Usage()
+		os.Exit(0)
+	}
+
+	if *version {
+		fmt.Fprintf(os.Stderr, "indexer v%s (%s, %s)\n", IndexerVersion, IndexerTimestamp, IndexerCommit)
 		os.Exit(0)
 	}
 
