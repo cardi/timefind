@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"timefind/config"
-	"timefind/index"
+	"timefind/pkg/config"
+	"timefind/pkg/index"
 
 	"github.com/pborman/getopt"
 )

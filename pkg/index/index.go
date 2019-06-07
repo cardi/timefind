@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"timefind/config"
-	"timefind/processor"
-	tf_time "timefind/time"
+	"timefind/pkg/config"
+	"timefind/pkg/processor"
+	tf_time "timefind/pkg/time"
 )
 
 type Entry struct {

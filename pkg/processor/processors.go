@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	tf_time "timefind/time"
+	tf_time "timefind/pkg/time"
 
 	"github.com/dirtbags/go-pcap"
 	mrt "github.com/kaorimatz/go-mrt"

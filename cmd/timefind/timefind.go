@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"timefind/config"
-	"timefind/index"
-	tf_time "timefind/time"
+	"timefind/pkg/config"
+	"timefind/pkg/index"
+	tf_time "timefind/pkg/time"
 
 	"github.com/pborman/getopt"
 )
