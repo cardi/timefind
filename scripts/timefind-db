@@ -1,0 +1,158 @@
+#!/usr/bin/perl
+
+=head1 NAME
+
+timefind-db - find files between to date ranges from a timefind DB
+
+=head1 SYNOPSIS
+
+timefind-db --db DBFILE STARTDATE ENDDATE
+
+=head1 DESCRIPTION
+
+I<STARTDATE> and I<ENDDATE> are parsed using Parse::Date and can be
+fairly flexible and understands most human based date/time strings
+(example: "2016-11-12 12:32").
+
+I<ENDDATE> may also be a numeric integer followed by a letter from the
+set [s, m, h, d, w] indicating a time length of seconds, minutes,
+hours, days, and weeks.
+
+Note: both I<STARTDATE> and I<ENDDATE> are assumed to be UTC by
+default, so pass in the timezone at the end of the stamp (such as
+"2016-01-01 10:00 PST") if a different timezone is needed.
+
+=head1 REQUIREMENTS
+ 
+Note, this requires the I<DBI> and I<DBD::SQLite> perl modules to be
+installed.
+
+=head1 OPTIONS
+
+=over
+
+=item B<--db=FILE>
+
+Use a database sqlite3 FILE instead of printing CSV to stdout.
+
+=item B<-v>
+
+Verbose mode
+
+=item B<--help>
+
+=item B<--h>
+
+Show help.
+
+=item B<--man>
+
+Show full manual.
+
+=back
+
+=cut
+
+use strict;
+use Getopt::Long;
+use Date::Parse;
+use Pod::Usage;
+use DBI;
+
+my ($db_name, $begin_time, $end_time,
+    $dbh, $selh, $verbose);
+
+my %time_lengths = (
+                    s => 1,
+                    m => 60,
+                    h => 60*60,
+                    d => 60*60*24,
+                    w => 60*60*24*7
+                    );
+
+GetOptions(
+           'db=s'     => \$db_name,
+           'v'        => \$verbose,
+           'h|help|?' => sub { pod2usage(1); },
+           'man'      => sub { pod2usage(-verbose => 2); },
+          ) or pod2usage(2);
+
+($begin_time, $end_time) = @ARGV;
+
+pod2usage(2) if (!defined($begin_time) || !defined($end_time));
+
+# translate the dates to epoch times
+if ($begin_time !~ /^\d+$/) {
+	$begin_time = str2time($begin_time, 'UTC');
+	if (!$begin_time) {
+		print STDERR "failed to parse the start date\n";
+		exit(1);
+	}
+}
+
+# see if the end time is a offset length
+if ($end_time =~ /^(\d+)([smhdw])/) {
+	$end_time = $begin_time + ($1 * $time_lengths{$2});
+}
+
+# If the end time is a human date stamp, convert it
+if ($end_time !~ /^\d+$/) {
+	$end_time   = str2time($end_time, 'UTC');
+	if (!$end_time) {
+		print STDERR "failed to parse the start date\n";
+		exit(1);
+	}
+}
+
+Verbose("start timestamp: $begin_time");
+Verbose("end timestamp:   $end_time");
+
+# open the database
+$dbh = DBI->connect("dbi:SQLite:dbname=$db_name", "", "");
+$selh = $dbh->prepare_cached("select filename from timefind 
+                               where
+                                     (begin_time > ? and
+                                      end_time < ?)
+");
+
+                                  # or (begin_time < ? and
+                                  #     end_time   > ?)
+                                  # or (end_time    > ? and
+                                  #     begin_time  < ?)
+
+$selh->execute($begin_time, $end_time #, $begin_time, $begin_time, $end_time, $end_time
+              );
+while (my $row = $selh->fetchrow_arrayref()) {
+	print $row->[0],"\n";
+}
+
+sub Verbose {
+	print @_, "\n" if ($verbose); 
+}
+
+=head1 AUTHOR
+
+Wes Hardaker <hardaker@isi.edu>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2015-2016 University of Southern California.
+All rights reserved.                                            
+                                                                
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License,
+version 2, as published by the Free Software Foundation.
+ 
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc.,
+59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+=cut
+    
+
+
