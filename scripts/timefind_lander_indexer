@@ -43,6 +43,15 @@ and endtime is deteremined the starttime of the next file.
 
 =over
 
+=item B<--db=FILE>
+
+Use a database sqlite3 FILE instead of printing CSV to stdout.
+
+=item B<-c>
+
+When using --db, also create the database timefind table.
+(this is required the first time a database is used)
+
 =item B<-d>
 
 Enable debugging output.
@@ -67,6 +76,7 @@ use strict;
 use Pod::Usage;
 use Getopt::Long;
 use DateTime;
+use DBI;
 
 Getopt::Long::Configure ("bundling");
 pod2usage(2) if ($#ARGV >= 0 && $ARGV[0] eq '-?');
@@ -74,13 +84,33 @@ pod2usage(2) if ($#ARGV >= 0 && $ARGV[0] eq '-?');
 my($prog) = $0;
 my $debug = undef;
 my $verbose = undef;
+my $dbname = undef;
+my $createdb = undef;
+my $dbh = undef;
+my $insh = undef;
+my $selh = undef;
+
 &GetOptions(
- 	'help|?' => sub { pod2usage(1); },
+ 	'h|help|?' => sub { pod2usage(1); },
 	'man' => sub { pod2usage(-verbose => 2); },
+	'db=s' => \$dbname,
+        'c' => \$createdb,
 	'd|debug+' => \$debug,   
         'v|verbose+' => \$verbose) or pod2usage(2);
 pod2usage("$prog: no directories given.\n") if ($#ARGV < 0);
 
+if ($dbname) {
+	$dbh = DBI->connect("dbi:SQLite:dbname=$dbname", "", "");
+	if ($createdb) {
+		$dbh->do("create table timefind(begin_time int, end_time int, filename varchar(4096));");
+	}
+
+	$insh = $dbh->prepare_cached("insert into timefind(begin_time, end_time, filename) values(?, ?, ?)");
+	$selh = $dbh->prepare_cached("select * from timefind 
+                                                 where begin_time = ?
+                                                   and end_time = ?
+                                                   and filename = ?");
+}
 
 sub check_dir {
     my($dir) = @_;
@@ -111,6 +141,9 @@ sub check_dir {
     #
     # check
     #
+    if ($dbname) {
+	    $dbh->begin_work();
+    }
     die "not enough files\n" if ($#seqnos < 1);
     @seqnos = sort { $a <=> $b } @seqnos;
     my $longest_duration = $epoch_times{$seqnos[1]} - $epoch_times{$seqnos[0]};
@@ -128,8 +161,20 @@ sub check_dir {
 	    my ($this_duration) = $epoch_end - $epoch_beg;
 	    $longest_duration = $this_duration if ($this_duration > $longest_duration);
 	};
-	print join(',', "$dir/$files{$si}", $epoch_beg, $epoch_end), "\n";
+	if ($dbname) {
+		$selh->execute($epoch_beg, $epoch_end, "$dir/$files{$si}");
+		if (! $selh->fetchrow_arrayref()) {
+			$insh->execute($epoch_beg, $epoch_end, "$dir/$files{$si}");
+		}
+	} else {
+		print join(',', "$dir/$files{$si}", $epoch_beg, $epoch_end), "\n";
+	}
     };
+
+    if ($dbname) {
+	    $dbh->commit();
+	    print "$dir\n";
+    }
     return 0;
 }
 
