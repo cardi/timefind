@@ -741,37 +741,16 @@ func process_stealthwatch(filename string) (times tf_time.Times, err error) {
 }
 
 func process_pcap(filename string) (times tf_time.Times, err error) {
-	var reader io.Reader
-
 	f, err := os.Open(filename)
 	if err != nil {
 		return times, err
 	}
 	defer f.Close()
 
-	if strings.Contains(filename, ".gz") {
-		// handle gzip
-		gf, err := gzip.NewReader(f)
-		if err != nil {
-			f.Seek(0, 0)
-			reader = f
-		} else {
-			reader = gf
-			defer gf.Close()
-		}
-	} else if strings.Contains(filename, ".xz") {
-		// handle xz
-		xf, err := xz.NewReader(f, 0)
-		if err != nil {
-			log.Printf("error reading .xz file = %s, skipping...\n", err)
-			return times, err
-		} else {
-			reader = xf
-			// XXX xz has no xz.Close()
-		}
-	} else {
-		// just a plain, raw .pcap file
-		reader = f
+	reader, err := OpenFile(f)
+	if err != nil {
+		log.Printf("error is getting an io.Reader: %s", err)
+		return times, err
 	}
 
 	// start reading pcap
