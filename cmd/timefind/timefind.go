@@ -85,7 +85,7 @@ func main() {
 	getopt.Parse()
 
 	getopt.SetUsage(func() {
-		fmt.Fprintf(os.Stderr, "timefind v%s (%s, %s)\n", TimefindVersion, TimefindTimestamp, TimefindCommit)
+		fmt.Fprintf(os.Stderr, "timefind v%s\n", TimefindVersion)
 		getopt.PrintUsage(os.Stderr)
 		fmt.Fprintf(os.Stderr,
 			`
@@ -105,7 +105,7 @@ TIMESTAMP must be in one of the following formats:
 	}
 
 	if *version {
-		fmt.Fprintf(os.Stderr, "timefind v%s (%s, %s)\n", TimefindVersion, TimefindTimestamp, TimefindCommit)
+		fmt.Fprintf(os.Stderr, "timefind v%s (%s, %s)\n", TimefindVersion)
 		os.Exit(0)
 	}
 
@@ -134,18 +134,6 @@ TIMESTAMP must be in one of the following formats:
 		}
 	}
 	vlog("looking for configuration files = %+v\n", sources)
-
-	/* TODO handle multiple sections with a delimeter or just list the files?
-
-	option #1 (currently):
-
-		/a/b/c/d.gz
-		/a/d/e/f.csv
-
-	option #2:
-		dns      /a/b/c/d.gz
-		netflow  /a/d/e/f.csv
-	*/
 
 	for _, config_path := range sources {
 
