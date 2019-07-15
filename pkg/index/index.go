@@ -1,6 +1,7 @@
 package index
 
 import (
+	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -13,6 +14,8 @@ import (
 	"timefind/pkg/config"
 	"timefind/pkg/processor"
 	tf_time "timefind/pkg/time"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Entry struct {
@@ -23,16 +26,17 @@ type Entry struct {
 }
 
 type Index struct {
-	Filename string                // The name of this index
-	Config   *config.Configuration // The configuration data for this index.
-	subDir   string                // The sub directory of index files that this index applies to.
-	entries  map[string]Entry      // It's slice of entries
-	Period   tf_time.Times         // The earliest and latest item within this entire index.
-	Modified time.Time             // When this index was last modified.
+	Filename string                // the name of this index
+	Config   *config.Configuration // the configuration data for this index
+	db       *sql.DB               // database connection
+	subDir   string                // the sub directory of index files that this index applies to
+	entries  map[string]Entry      // its slice of entries
+	Period   tf_time.Times         // the earliest and latest item within this entire index
+	Modified time.Time             // when this index was last modified
 }
 
 // TODO propagate this option from timefind.go
-var verbose bool = false
+var verbose bool = true
 
 func vlog(format string, a ...interface{}) {
 	if verbose {
@@ -58,8 +62,53 @@ func subIndex(cfg *config.Configuration, subDir string) (*Index, error) {
 		return nil, fmt.Errorf("Configuration specified unknown data type: %s.", cfg.Type)
 	}
 
-	filename := filepath.Join(cfg.IndexDir, subDir, cfg.Name+".csv")
+	var filename string
 
+	// select either CSV or Sqlite3, but not both
+	if cfg.IndexDir != "" {
+		// use CSV format
+		filename = filepath.Join(cfg.IndexDir, subDir, cfg.Name+".csv")
+	} else if cfg.IndexDb != "" {
+		// use Sqlite3 format
+		filename = filepath.Join(cfg.IndexDb)
+	} else {
+		// should never get here
+		return nil, fmt.Errorf("Configuration does not have an index directory" +
+			" or database path.")
+	}
+
+	// if we're using an Sqlite3 database
+	if cfg.IndexDb != "" {
+
+		db, err := sql.Open("sqlite3", filename)
+		if err != nil {
+			// TODO from timefind-indexer, if the db doesn't exist, we should
+			// return because we'll create it in Update().
+			//
+			// from timefind, we'll exit with an error since we can't do anything
+			// without a data source
+			log.Fatal("unable to use data source name", err)
+		}
+
+		// verify we can connect to database
+		if err := db.Ping(); err != nil {
+			log.Fatal(err)
+		}
+
+		idx := &Index{
+			Filename: filename,
+			Config:   cfg,
+			db:       db,
+			subDir:   subDir,
+			entries:  map[string]Entry{},
+			Period:   tf_time.Times{},
+			Modified: time.Time{},
+		}
+
+		return idx, nil
+	}
+
+	// else, if we're using CSV files
 	idx := &Index{
 		Filename: filename,
 		Config:   cfg,
@@ -229,7 +278,7 @@ func (idx *Index) Update() error {
 				if err != nil {
 					// We shouldn't disrupt the entire process just because we
 					// couldn't process a particular file!
-					log.Print("ack! Skipping data file ", full_path)
+					log.Printf("ack! Error: %s, skipping data file %s", err, full_path)
 					continue
 					//return err
 				}
@@ -285,6 +334,43 @@ func (idx *Index) FindLogs(earliest time.Time, latest time.Time) []Entry {
 
 	vlog("Find Earliest: %s Latest: %s", earliest, latest)
 
+	// if we have a database handle, then select from the database
+	if idx.db != nil {
+		rows, err := idx.db.Query(
+			"SELECT filename, begin_time, end_time, last_mod_time "+
+				"FROM timefind "+
+				"WHERE begin_time < $1 AND end_time > $2",
+			latest.Unix(), earliest.Unix())
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer rows.Close()
+
+		var begin_time []byte
+		var end_time []byte
+		var last_mod_time []byte
+		var filename string
+
+		for rows.Next() {
+			rows.Scan(&filename, &begin_time, &end_time, &last_mod_time)
+
+			entry := Entry{}
+			entry.Path = filename
+			entry.Period.Earliest, _ = tf_time.UnmarshalTime(begin_time)
+			entry.Period.Latest, _ = tf_time.UnmarshalTime(end_time)
+			entry.Modified, _ = tf_time.UnmarshalTime(last_mod_time)
+
+			entries = append(entries, entry)
+		}
+
+		if err := rows.Err(); err != nil {
+			log.Fatal(err)
+		}
+
+		return entries
+	}
+
+	// else, we recursively search through our index files
 	for _, entry := range idx.entries {
 		vlog("Trying: %s, %s", entry.Period.Earliest, entry.Period.Latest)
 		switch {
