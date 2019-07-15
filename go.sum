@@ -2,6 +2,8 @@ github.com/dirtbags/go-pcap v0.0.0-20141009214929-a60bbeb1aa48 h1:THxjhpN8stfG0q
 github.com/dirtbags/go-pcap v0.0.0-20141009214929-a60bbeb1aa48/go.mod h1:2UimTTsu9xwo5w4Gv1glAxEQM4qUxkKKSSogadcG1gs=
 github.com/kaorimatz/go-mrt v0.0.0-20150503052206-619828fef149 h1:2G4banPz1K8B0r37uQ5X7bfdv/oO7sw6300mzmePHnI=
 github.com/kaorimatz/go-mrt v0.0.0-20150503052206-619828fef149/go.mod h1:KUXNgiu1+bxftJBB5MHhuDqBiL0gi6G4lTALnxp3qwE=
+github.com/mattn/go-sqlite3 v1.10.0 h1:jbhqpg7tQe4SupckyijYiy0mJJ/pRyHvXf7JdWK860o=
+github.com/mattn/go-sqlite3 v1.10.0/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
 github.com/pborman/getopt v0.0.0-20170112200414-7148bc3a4c30 h1:BHT1/DKsYDGkUgQ2jmMaozVcdk+sVfz0+1ZJq4zkWgw=
 github.com/pborman/getopt v0.0.0-20170112200414-7148bc3a4c30/go.mod h1:85jBQOZwpVEaDAr341tbn15RS4fCAsIst0qp7i8ex1o=
 github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 h1:nIPpBwaJSVYIxUFsDv3M8ofmx9yWTog9BfvIu0q41lo=
