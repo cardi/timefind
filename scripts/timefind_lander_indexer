@@ -34,10 +34,10 @@ and the third numeric field is a sequence number.
 
 Write a timefind index to standard output in the format
 
-    pathname,starttime,endtime
+    pathname,starttime,endtime,lastmodtime
 
 Where times are in Unix epoch seconds in UTC timezone
-and endtime is deteremined the starttime of the next file.
+and endtime is determined the starttime of the next file.
 
 =head1 OPTIONS
 
@@ -77,6 +77,7 @@ use Pod::Usage;
 use Getopt::Long;
 use DateTime;
 use DBI;
+use File::stat;
 
 Getopt::Long::Configure ("bundling");
 pod2usage(2) if ($#ARGV >= 0 && $ARGV[0] eq '-?');
@@ -102,13 +103,14 @@ pod2usage("$prog: no directories given.\n") if ($#ARGV < 0);
 if ($dbname) {
 	$dbh = DBI->connect("dbi:SQLite:dbname=$dbname", "", "");
 	if ($createdb) {
-		$dbh->do("create table timefind(begin_time int, end_time int, filename varchar(4096));");
+		$dbh->do("create table timefind(begin_time int, end_time int, last_mod_time int, filename varchar(4096));");
 	}
 
-	$insh = $dbh->prepare_cached("insert into timefind(begin_time, end_time, filename) values(?, ?, ?)");
+	$insh = $dbh->prepare_cached("insert into timefind(begin_time, end_time, last_mod_time, filename) values(?, ?, ?, ?)");
 	$selh = $dbh->prepare_cached("select * from timefind
                                                  where begin_time = ?
                                                    and end_time = ?
+                                                   and last_mod_time = ?
                                                    and filename = ?");
 }
 
@@ -118,7 +120,7 @@ sub check_dir {
 
     opendir(DIR, "$dir") or die "$0: cannot open $dir\n";
     # buffer them so we don't depend on sorting order (from readdir or digits)
-    my(@seqnos, %files, %epoch_times);
+    my(@seqnos, %files, %epoch_times, %lastmod_times);
     my(@files) = readdir(DIR);
     die "$0: cannot readdir $dir\n" if ($#files == -1);
     foreach (@files) {
@@ -135,6 +137,7 @@ sub check_dir {
 				time_zone => 'UTC');
 	$epoch_times{$seqno} = $dt->epoch;
 	$files{$seqno} = $_;
+	$lastmod_times{$seqno} = stat("$dir/$_")->mtime;
     };
     close DIR;
 
@@ -151,6 +154,7 @@ sub check_dir {
 	my($si) = $seqnos[$_];
 	my $epoch_beg = $epoch_times{$seqnos[$_]};
 	my $epoch_end;
+	my $lastmod_time = $lastmod_times{$seqnos[$_]};
 	if ($_ == $#seqnos) {
 	    # We don't know the actual length of the last file because
 	    # it ends in the next directory.  Fake it as 2x the longest we've seen,
@@ -162,12 +166,12 @@ sub check_dir {
 	    $longest_duration = $this_duration if ($this_duration > $longest_duration);
 	};
 	if ($dbname) {
-		$selh->execute($epoch_beg, $epoch_end, "$dir/$files{$si}");
+		$selh->execute($epoch_beg, $epoch_end, $lastmod_time, "$dir/$files{$si}");
 		if (! $selh->fetchrow_arrayref()) {
-			$insh->execute($epoch_beg, $epoch_end, "$dir/$files{$si}");
+			$insh->execute($epoch_beg, $epoch_end, $lastmod_time, "$dir/$files{$si}");
 		}
 	} else {
-		print join(',', "$dir/$files{$si}", $epoch_beg, $epoch_end), "\n";
+		print join(',', "$dir/$files{$si}", $epoch_beg, $epoch_end, $lastmod_time), "\n";
 	}
     };
 
