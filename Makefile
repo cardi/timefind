@@ -2,6 +2,7 @@ PREFIX  ?= /usr
 DESTDIR ?=
 BINDIR  ?= $(PREFIX)/bin
 
+export CGO_ENABLED := 1
 export GOPATH      ?= $(CURDIR)/.gopath
 export GO111MODULE := on
 
