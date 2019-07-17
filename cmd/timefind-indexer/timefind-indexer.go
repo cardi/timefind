@@ -28,7 +28,7 @@ func main() {
 	getopt.Parse()
 
 	getopt.SetUsage(func() {
-		fmt.Fprintf(os.Stderr, "indexer v%s (%s, %s)\n", IndexerVersion, IndexerTimestamp, IndexerCommit)
+		fmt.Fprintf(os.Stderr, "timefind-indexer v%s\n", IndexerVersion)
 		getopt.PrintUsage(os.Stderr)
 	})
 
@@ -38,7 +38,7 @@ func main() {
 	}
 
 	if *version {
-		fmt.Fprintf(os.Stderr, "indexer v%s (%s, %s)\n", IndexerVersion, IndexerTimestamp, IndexerCommit)
+		fmt.Fprintf(os.Stderr, "timefind-indexer v%s\n", IndexerVersion)
 		os.Exit(0)
 	}
 
