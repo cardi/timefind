@@ -8,16 +8,22 @@ The latest version can be found at <https://ant.isi.edu/software/timefind>.
 Please send email to <calvin@isi.edu> with questions, bugs, feature
 requests, patches, and any notes on your usage.
 
-## getting started
+## quick start
 
-## building and installing
-
+We'll first compile the applications:
 1. Install Go (v1.12+)
 2. Run `make'
 
 ## documentation
 
 See the [Documentation](./docs).
+
+## repository structure
+
+| cmd/     | application code for `timefind` and `timefind-indexer`      |
+| docs/    | documentation for index format, applications, and man pages |
+| pkg/     | library code used by `timefind` and `timefind-indexer`      |
+| scripts/ | external scripts to interact with indicies                  |
 
 ## libraries used
 
@@ -31,7 +37,7 @@ See the [Documentation](./docs).
 
 ## license
 
-[GPL-2.0-or-later](./LICENSE)
+[`GPL-2.0-or-later`](./LICENSE)
 
 Copyright (C) 2015. Los Alamos National Security, LLC.
 
