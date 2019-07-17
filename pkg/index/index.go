@@ -80,13 +80,11 @@ func subIndex(cfg *config.Configuration, subDir string) (*Index, error) {
 	// if we're using an Sqlite3 database
 	if cfg.IndexDb != "" {
 
+		// if there is no error, it's possible that the database file does not
+		// yet exist, does not contain a table named "timefind", or is empty.
+		// these cases will have to be handled elsewhere.
 		db, err := sql.Open("sqlite3", filename)
 		if err != nil {
-			// TODO from timefind-indexer, if the db doesn't exist, we should
-			// return because we'll create it in Update().
-			//
-			// from timefind, we'll exit with an error since we can't do anything
-			// without a data source
 			log.Fatal("unable to use data source name", err)
 		}
 
