@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"runtime"
 	"timefind/pkg/config"
 	"timefind/pkg/index"
 
@@ -49,12 +48,6 @@ func main() {
 	}
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-
-	// set parallelism (automatic in Go 1.6+)
-	if runtime.GOMAXPROCS(0) < runtime.NumCPU() {
-		runtime.GOMAXPROCS(runtime.NumCPU())
-		log.Printf("setting GOMAXPROCS = NumCPU = %d\n", runtime.NumCPU())
-	}
 
 	for _, configPath := range configPaths {
 
