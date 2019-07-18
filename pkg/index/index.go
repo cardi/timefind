@@ -197,6 +197,78 @@ func subIndex(cfg *config.Configuration, subDir string) (*Index, error) {
 
 // Update all the records for this index and all sub indexes.
 func (idx *Index) Update() error {
+
+	// db: we'll read all the entries from the db here, since we only call
+	// Update() in `timefind-indexer`--if using csv, we already read all the
+	// entries earlier when subIndex() was called.
+	//
+	// this is a bit messy, but perhaps offers some (marginal?) performance
+	// improvements since we only load every entry into memory when we really
+	// need to.
+	if idx.db != nil {
+		// create the table if it doesn't already exist
+		sql_stmt := `
+			create table if not exists
+				timefind (begin_time REAL, end_time REAL, last_mod_time REAL, filename TEXT PRIMARY KEY);`
+		_, err := idx.db.Exec(sql_stmt)
+		if err != nil {
+			log.Printf("%q: %s\n", err, sql_stmt)
+			return err
+		}
+
+		// check if:
+		// (1) does the table contain the correct columns and
+		// (2) count of existing entries, if any
+		sql_stmt = `
+			SELECT count(*)
+			FROM (
+				SELECT filename, begin_time, end_time, last_mod_time
+				FROM timefind
+				 );`
+
+		var count int
+		err = idx.db.QueryRow(sql_stmt).Scan(&count)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("number of existing entries in table: %d\n", count)
+
+		// if entries exist, then load and read entries into memory
+		if count > 0 {
+			sql_stmt = `
+				SELECT filename, begin_time, end_time, last_mod_time
+				FROM timefind`
+
+			rows, err := idx.db.Query(sql_stmt)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer rows.Close()
+
+			var begin_time []byte
+			var end_time []byte
+			var last_mod_time []byte
+			var filename string
+
+			for rows.Next() {
+				rows.Scan(&filename, &begin_time, &end_time, &last_mod_time)
+
+				entry := Entry{}
+				entry.Path = filename
+				entry.Period.Earliest, _ = tf_time.UnmarshalTime(begin_time)
+				entry.Period.Latest, _ = tf_time.UnmarshalTime(end_time)
+				entry.Modified, _ = tf_time.UnmarshalTime(last_mod_time)
+
+				idx.entries[entry.Path] = entry
+			}
+
+			if err := rows.Err(); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+
 	for path, _ := range idx.entries {
 		_, err := os.Stat(path)
 		if err != nil {
@@ -214,8 +286,16 @@ func (idx *Index) Update() error {
 			}
 			if found == false {
 				log.Print("Removing missing file", path)
-				// It wasn't a directory, so it looks like it's missing.
-				delete(idx.entries, path)
+				if idx.db != nil {
+					// db: set entry.Modified to zero time so we can remove it
+					// from the db later (in WriteOut())
+					entry := idx.entries[path]
+					entry.Modified = time.Time{}
+					idx.entries[path] = entry
+				} else {
+					// It wasn't a directory, so it looks like it's missing.
+					delete(idx.entries, path)
+				}
 			}
 		}
 	}
@@ -291,35 +371,43 @@ func (idx *Index) Update() error {
 
 	// Now that we've processed all the files in this directory, recursively
 	// process all the subdirectories.
-	for dir, _ := range subDirs {
-		entry, ok := idx.entries[dir]
-		if ok == false {
-			entry = Entry{Path: dir,
-				Period:   tf_time.Times{},
-				Modified: time.Time{},
-				subIndex: nil}
+
+	// TODO db: handle subdirectories recusrively
+	if idx.db != nil {
+		for dir, _ := range subDirs {
+			log.Printf("Not processing subdirectory: %s\n", dir)
 		}
+	} else {
+		for dir, _ := range subDirs {
+			entry, ok := idx.entries[dir]
+			if ok == false {
+				entry = Entry{Path: dir,
+					Period:   tf_time.Times{},
+					Modified: time.Time{},
+					subIndex: nil}
+			}
 
-		log.Print("Processing subdirectory ", filepath.Join(idx.subDir, dir))
+			log.Print("Processing subdirectory ", filepath.Join(idx.subDir, dir))
 
-		if entry.subIndex == nil {
-			var err error
-			entry.subIndex, err = subIndex(idx.Config, filepath.Join(idx.subDir, dir))
+			if entry.subIndex == nil {
+				var err error
+				entry.subIndex, err = subIndex(idx.Config, filepath.Join(idx.subDir, dir))
+				if err != nil {
+					return err
+				}
+			}
+
+			err := entry.subIndex.Update()
 			if err != nil {
 				return err
 			}
+
+			entry.Period = entry.subIndex.Period
+			idx.Period.Union(entry.Period)
+			entry.Modified = entry.subIndex.Modified
+
+			idx.entries[dir] = entry
 		}
-
-		err := entry.subIndex.Update()
-		if err != nil {
-			return err
-		}
-
-		entry.Period = entry.subIndex.Period
-		idx.Period.Union(entry.Period)
-		entry.Modified = entry.subIndex.Modified
-
-		idx.entries[dir] = entry
 	}
 
 	idx.Modified = time.Now().UTC()
@@ -337,7 +425,7 @@ func (idx *Index) FindLogs(earliest time.Time, latest time.Time) []Entry {
 		rows, err := idx.db.Query(
 			"SELECT filename, begin_time, end_time, last_mod_time "+
 				"FROM timefind "+
-				"WHERE begin_time < $1 AND end_time > $2",
+				"WHERE cast(begin_time as real) < $1 AND cast(end_time as real) > $2",
 			latest.Unix(), earliest.Unix())
 		if err != nil {
 			log.Fatal(err)
@@ -394,47 +482,96 @@ func (idx *Index) FindLogs(earliest time.Time, latest time.Time) []Entry {
 }
 
 func (idx *Index) WriteOut() error {
-	tmpfn := fmt.Sprintf("%s.new", idx.Filename)
 
-	idxPath, _ := filepath.Split(idx.Filename)
-	// Create the index directory if it doesn't exist.
-	os.MkdirAll(idxPath, 0777)
-
-	outfile, err := os.Create(tmpfn)
-	if err != nil {
-		return err
-	}
-	defer outfile.Close()
-
-	csv_file := csv.NewWriter(outfile)
-
-	for path, entry := range idx.entries {
-		Earliest_bytes, _ := tf_time.MarshalTime(entry.Period.Earliest)
-		Latest_bytes, _ := tf_time.MarshalTime(entry.Period.Latest)
-		Modified_bytes, _ := tf_time.MarshalTime(entry.Modified)
-
-		recs := []string{path,
-			string(Earliest_bytes),
-			string(Latest_bytes),
-			string(Modified_bytes)}
-		err := csv_file.Write(recs)
+	// TODO might need to check that the db handle hasn't been closed
+	// inadvertently along the way
+	if idx.db != nil {
+		tx, err := idx.db.Begin()
 		if err != nil {
 			return err
 		}
 
-		if entry.subIndex != nil {
-			if err := entry.subIndex.WriteOut(); err != nil {
+		// UPSERT / INSERT or UPDATE entries into the table
+		stmt, err := tx.Prepare(`
+			INSERT INTO timefind(filename, begin_time, end_time, last_mod_time)
+			VALUES(?,?,?,?)
+			ON CONFLICT(filename)
+			DO UPDATE SET begin_time=excluded.begin_time,
+			              end_time=excluded.end_time,
+			              last_mod_time=excluded.last_mod_time`)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		del_stmt, err := tx.Prepare("DELETE FROM timefind WHERE filename = ?")
+		if err != nil {
+			return err
+		}
+		defer del_stmt.Close()
+
+		for path, entry := range idx.entries {
+			// we earlier marked entries for deletion by setting its modified
+			// time to zero, and now we delete them from the table
+			if entry.Modified.IsZero() {
+				_, err = del_stmt.Exec(path)
+			} else {
+				Earliest_bytes, _ := tf_time.MarshalTime(entry.Period.Earliest)
+				Latest_bytes, _ := tf_time.MarshalTime(entry.Period.Latest)
+				Modified_bytes, _ := tf_time.MarshalTime(entry.Modified)
+
+				_, err = stmt.Exec(path, Earliest_bytes, Latest_bytes, Modified_bytes)
+			}
+
+			if err != nil {
 				return err
 			}
 		}
 
+		tx.Commit()
+	} else {
+		tmpfn := fmt.Sprintf("%s.new", idx.Filename)
+
+		idxPath, _ := filepath.Split(idx.Filename)
+		// Create the index directory if it doesn't exist.
+		os.MkdirAll(idxPath, 0777)
+
+		outfile, err := os.Create(tmpfn)
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+
+		csv_file := csv.NewWriter(outfile)
+
+		for path, entry := range idx.entries {
+			Earliest_bytes, _ := tf_time.MarshalTime(entry.Period.Earliest)
+			Latest_bytes, _ := tf_time.MarshalTime(entry.Period.Latest)
+			Modified_bytes, _ := tf_time.MarshalTime(entry.Modified)
+
+			recs := []string{path,
+				string(Earliest_bytes),
+				string(Latest_bytes),
+				string(Modified_bytes)}
+			err := csv_file.Write(recs)
+			if err != nil {
+				return err
+			}
+
+			if entry.subIndex != nil {
+				if err := entry.subIndex.WriteOut(); err != nil {
+					return err
+				}
+			}
+
+		}
+
+		csv_file.Flush()
+
+		// It's okay to rename while open, on Unix,
+		// since the file descriptor doesn't care about the filename
+		os.Rename(tmpfn, idx.Filename)
 	}
-
-	csv_file.Flush()
-
-	// It's okay to rename while open, on Unix,
-	// since the file descriptor doesn't care about the filename
-	os.Rename(tmpfn, idx.Filename)
 
 	return nil
 }
