@@ -10,13 +10,19 @@ requests, patches, and any notes on your usage.
 
 ## quick start
 
+*TODO*
+
 We'll first compile the applications:
 1. Install Go (v1.12+)
 2. Run `make'
 
-## documentation
+See the [Documentation](./docs) for additional details on using
+`timefind-indexer` and `timefind`.
 
-See the [Documentation](./docs).
+## known issues
+
+* `timefind-indexer` does not recursively process sub-directories containing
+  data when using an Sqlite3 database for an index.
 
 ## repository structure
 
