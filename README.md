@@ -26,6 +26,8 @@ See the [Documentation](./docs) for additional details on using
 
 ## repository structure
 
+| path     | description                                                 |
+| ---      | ---                                                         |
 | cmd/     | application code for `timefind` and `timefind-indexer`      |
 | docs/    | documentation for index format, applications, and man pages |
 | pkg/     | library code used by `timefind` and `timefind-indexer`      |
