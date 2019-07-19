@@ -1,38 +1,35 @@
-timefind_indexer
-================
+# timefind-indexer
 
-`timefind_indexer' reads in a configuration file describing a source and outputs an
-index in CSV format containing a list of filenames, timestamp of the earliest
-record, timestamp of the latest record, and the time that the file was last
-modified.
+`timefind-indexer` reads in a configuration file describing a source and
+outputs an index in CSV format containing a list of filenames, timestamp of the
+earliest record, timestamp of the latest record, and the time that the file was
+last modified.
 
-Using `timefind' in conjunction with these indexes, a user can downselect the
-number of files based on a time range.
+By using `timefind` in conjunction with these index files, a user can
+downselect the number of files based on a time range.
 
-Dependencies and Building
-=========================
+## Dependencies and Building
 
 1. Build configuration file. (e.g., SOURCENAME.conf.json)
    See [Single Source Configuration File].
 
-2. Run timefind_indexer.
+2. Run `timefind-indexer`.
 
-    ./timefind_indexer -h
+    ./timefind-indexer -h
 
 ```
-    Usage: timefind_indexer [-huv] [-c PATH]
+    Usage: timefind-indexer [-huv] [-c PATH]
       -c, --config=PATH  Path to configuration file (can be used multiple times)
       -h, --help         Show this help message and exit
       -u, --unixtime     write Unix time to indexes instead of RFC 3339
       -v, --verbose      Verbose progress indicators and messages
 ```
 
-After building your configuration file, you can run the timefind_indexer:
+After building your configuration file, you can run the `timefind-indexer`:
 
-    ./timefind_indexer -c SOURCENAME.conf.json
+    ./timefind-indexer -c SOURCENAME.conf.json
 
-Single Source Configuration File
-================================
+## Single Source Configuration File
 
 Each distinct data source requires its own configuration file.
 The name of the configuration file (or source) will be the name of the index:
@@ -58,17 +55,17 @@ A basic source file for DNS data (named "dns.conf.json") might look like this:
         "exclude": []
     }
 
-The index directory ("indexDir") is where the indexed data will be stored. 
-After the timefind_indexer has finished running, the indexes can be found in the 
-in a .csv file located in "indexDir".
+The index directory ("indexDir") is where the indexed data will be stored.
+After the `timefind-indexer` has finished running, the index files can be found
+in the in a .csv file located in "indexDir".
 
 The index filename is the same as the source name.
 
-Recursive directory support: When the timefind_indexer is run, the directory structure
-that is traversed when indexing "paths" is created in the "indexDir." One index
-file is created per directory. For directories containing subdirectories with
-an index file in them, the index file in the subdirectory is indexed and
-written to the directory currently being indexed.
+Recursive directory support: When the `timefind-indexer` is run, the directory
+structure that is traversed when indexing "paths" is created in the "indexDir."
+One index file is created per directory. For directories containing
+subdirectories with an index file in them, the index file in the subdirectory
+is indexed and written to the directory currently being indexed.
 
 For example, if we use the above configuration file ("dns.conf.json"), and the
 directory structure is as follows:
@@ -88,20 +85,19 @@ The indexes will be generated in the following format:
 See [Index Format] for more details.
 
 Each source config file has the components "type", "paths", "include",
-and "exclude". 
+and "exclude".
 
 "type" depends on the file format and which dates you wish to record from each
-file. See [Data Types and Processors] for the types of data that the timefind_indexer
-supports. If you don't see your data type listed, you will probably have to
-write a processor for it.
+file. See [Data Types and Processors] for the types of data that the
+`timefind-indexer` supports. If you don't see your data type listed, you will
+probably have to write a processor for it.
 
-"paths" is one or more filepaths containing files that you wish to index. 
+"paths" is one or more filepaths containing files that you wish to index.
 
-"include" is a file pattern that specifies which files you wish to index. 
+"include" is a file pattern that specifies which files you wish to index.
 "exclude" is a file pattern specifies which files you do not want indexed.
 
-Index Format
-============
+## Index Format
 
 Indexes are in CSV format:
 
@@ -139,15 +135,13 @@ desired time range is a directory (denoted by a relative path), we
 traverse to that directory's index and recursively process until we find
 the matching file entries, if any.
 
-Data Types and Processors
-=========================
+## Data Types and Processors
 
-The timefind_indexer reads data files and indexes the earliest and latest time found in
-each file. It has the ability to index data classified under the following
-categories:
+`timefind-indexer` reads data files and indexes the earliest and latest time
+found in each file. It has the ability to index data classified under the
+following categories:
 
-1. "cpp": 
-  
+1. "cpp":
     Unix timestamp is the first number listed on each line. Stores timestamp as
     a string and parses it to time.
 
@@ -159,7 +153,7 @@ categories:
     Searches for a date of the format "YYYY-MM-DD HH:MM:SS" on each line.
     Stores date as a string and parses it to time.
 
-4. "codevision": 
+4. "codevision":
     Searches for the expression "timestamp=YYYY-MM-DDTHH:MM:SS-ZZ:ZZ" on each
     line.  Stores date listed inside the expressison as a string and parses it
     to time.
@@ -169,7 +163,7 @@ categories:
     on each line. Stores date listed inside the expression as a string and
     parses it to time.
 
-6. "sep": 
+6. "sep":
     Searches for the expression "Event Time: YYYY-MM-DD HH:MM:SS" on each line.
     Stores date listed inside the expression as a string and parses it to time.
     If the expression is not found, timefind_indexer searches for the expression "Begin:
@@ -188,9 +182,9 @@ categories:
 8. "email":
     Searches for the expression "[DATETIME]YYYY.MM.DD HH:MM:SS.SSSSSSS" on each
     line.  Stores date listed inside the expression as a string and parses it
-    to time. 
+    to time.
 
-9. "text": 
+9. "text":
     Stores the time listed at the beginning of each line as a string and parses
     it to time. This time is either of the format "Jan 2 2006 15:04:05 or the
     format "Jan 2 15:04:05"
