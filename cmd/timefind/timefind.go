@@ -110,6 +110,10 @@ TIMESTAMP must be in one of the following formats:
 		os.Exit(0)
 	}
 
+	if verbose {
+		index.Verbose = true
+	}
+
 	// take a combination of configPaths (filenames)
 	// and sources (append .conf.json to get a configPath)
 	if len(getopt.Args())+len(configPath) == 0 {

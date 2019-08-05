@@ -42,6 +42,10 @@ func main() {
 		os.Exit(0)
 	}
 
+	if verbose {
+		index.Verbose = true
+	}
+
 	if len(configPaths) == 0 {
 		fmt.Fprintf(os.Stderr, "error: no configuration (-c/--config) found\n")
 		getopt.Usage()

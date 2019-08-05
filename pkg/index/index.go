@@ -36,11 +36,10 @@ type Index struct {
 	Modified time.Time             // when this index was last modified
 }
 
-// TODO propagate this option from timefind.go
-var verbose bool = true
+var Verbose bool
 
 func vlog(format string, a ...interface{}) {
-	if verbose {
+	if Verbose {
 		log.Printf(format, a...)
 	}
 }
