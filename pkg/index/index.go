@@ -316,19 +316,64 @@ func (idx *Index) Update() error {
 	for _, base_dir := range idx.Config.Paths {
 		dataPath := filepath.Join(base_dir, idx.subDir)
 
-		paths, err := ioutil.ReadDir(dataPath)
-		if err != nil {
-			continue
+		// if we're using the database, we'll process all files and
+		// sub-directories because all of the indices go in one table.
+		//
+		// if we're using CSV index, then we'll make note of any sub-directories
+		// and process those recursively, later.
+		var paths []os.FileInfo
+		var full_paths []string
+		var err error
+
+		if idx.db != nil {
+			// filepath.Walk does not traverse symbolic links
+			err = filepath.Walk(dataPath, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					fmt.Printf("failure accessing a path %q: %v\n", path, err)
+					return err
+				}
+
+				//vlog("%q\n", path)
+
+				paths = append(paths, info)
+				full_paths = append(full_paths, path)
+				return nil
+			})
+
+			if err != nil {
+				fmt.Printf("error walking path %q: %v\n", dataPath, err)
+				continue
+			}
+		} else {
+			paths, err = ioutil.ReadDir(dataPath)
+			if err != nil {
+				continue
+			}
 		}
 
-		for _, info := range paths {
+		for i, info := range paths {
 			if info.IsDir() {
-				// Note the existence of this directory, but don't index it yet.
+				// Note the existence of this directory, but don't index it yet
+				// (if we're not using db).
+				//
+				// If we are using db, we will index files inside
+				// sub-directories, but ignore the sub-directory entry itself.
 				subDirs[info.Name()] = true
 				continue
 			}
 
-			full_path := filepath.Join(dataPath, info.Name())
+			// the slice of os.FileInfo objects in paths doesn't contain
+			// information about the full path, which was OK when we process one
+			// directory at a time.
+			//
+			// when using db, we earlier built a parallel slice of full paths
+			// and use them here.
+			var full_path string
+			if idx.db != nil {
+				full_path = full_paths[i]
+			} else {
+				full_path = filepath.Join(dataPath, info.Name())
+			}
 
 			// (A) Check if the matching patterns are valid
 			// (B) Check if the filename:
@@ -370,14 +415,8 @@ func (idx *Index) Update() error {
 	}
 
 	// Now that we've processed all the files in this directory, recursively
-	// process all the subdirectories.
-
-	// TODO db: handle subdirectories recusrively
-	if idx.db != nil {
-		for dir, _ := range subDirs {
-			log.Printf("Not processing subdirectory: %s\n", dir)
-		}
-	} else {
+	// process all the subdirectories (if we're not using db).
+	if idx.db == nil {
 		for dir, _ := range subDirs {
 			entry, ok := idx.entries[dir]
 			if ok == false {
