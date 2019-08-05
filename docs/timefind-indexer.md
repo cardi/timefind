@@ -1,9 +1,9 @@
 # timefind-indexer
 
 `timefind-indexer` reads in a configuration file describing a source and
-outputs an index in CSV format containing a list of filenames, timestamp of the
-earliest record, timestamp of the latest record, and the time that the file was
-last modified.
+outputs an index in either CSV or Sqlite3 format containing a list of
+filenames, timestamp of the earliest record, timestamp of the latest record,
+and the time that the file was last modified.
 
 By using `timefind` in conjunction with these index files, a user can
 downselect the number of files based on a time range.
@@ -11,23 +11,22 @@ downselect the number of files based on a time range.
 ## Dependencies and Building
 
 1. Build configuration file. (e.g., SOURCENAME.conf.json)
-   See [Single Source Configuration File].
+   See [Single Source Configuration File](#single-source-configuration-file).
 
 2. Run `timefind-indexer`.
-
-    ./timefind-indexer -h
-
-```
-    Usage: timefind-indexer [-huv] [-c PATH]
-      -c, --config=PATH  Path to configuration file (can be used multiple times)
-      -h, --help         Show this help message and exit
-      -u, --unixtime     write Unix time to indexes instead of RFC 3339
-      -v, --verbose      Verbose progress indicators and messages
-```
+    ```
+    $ timefind-indexer -h
+	Usage: timefind-indexer [-hv] [-c PATH] [--version]
+	 -c, --config=PATH  REQUIRED: Path to configuration file (can be used multiple
+	                    times)
+	 -h, --help         Show this help message and exit
+	 -v, --verbose      Verbose progress indicators and messages
+	     --version      Prints the version
+    ```
 
 After building your configuration file, you can run the `timefind-indexer`:
 
-    ./timefind-indexer -c SOURCENAME.conf.json
+    timefind-indexer -c SOURCENAME.conf.json
 
 ## Single Source Configuration File
 
@@ -45,7 +44,8 @@ Some example valid configuration filenames:
     great_pcap.conf.json
     http_traffic.conf.json
 
-A basic source file for DNS data (named "dns.conf.json") might look like this:
+A basic source file for DNS data (named "dns.conf.json") that writes .csv index
+files might look like this:
 
     {
         "indexDir": "/index/pcap",
@@ -55,7 +55,8 @@ A basic source file for DNS data (named "dns.conf.json") might look like this:
         "exclude": []
     }
 
-The index directory ("indexDir") is where the indexed data will be stored.
+If you're using .csv files (by specifying an "indexDir"), the index directory
+("indexDir") is where the indexed data will be stored.
 After the `timefind-indexer` has finished running, the index files can be found
 in the in a .csv file located in "indexDir".
 
@@ -82,24 +83,48 @@ The indexes will be generated in the following format:
     /index/pcap/a/b/example.csv
     /index/pcap/c/example.csv
 
-See [Index Format] for more details.
+See [Index Format/CSV](#csv) for more details.
 
 Each source config file has the components "type", "paths", "include",
 and "exclude".
 
 "type" depends on the file format and which dates you wish to record from each
-file. See [Data Types and Processors] for the types of data that the
-`timefind-indexer` supports. If you don't see your data type listed, you will
-probably have to write a processor for it.
+file. See [Data Types and Processors](#data-types-and-processors) for the types
+of data that the `timefind-indexer` supports. If you don't see your data type
+listed, you will probably have to write a processor for it.
 
 "paths" is one or more filepaths containing files that you wish to index.
 
 "include" is a file pattern that specifies which files you wish to index.
 "exclude" is a file pattern specifies which files you do not want indexed.
 
+*EXPERIMENTAL*: Sqlite3 database support can be enabled by specifying an
+"indexDb" key, with a value of an absolute path to the database file.
+`timefind-indexer` can only use either .csv or Sqlite3, and not both.
+
+A source config file might look like:
+
+    {
+        "indexDb": "/index/pcap.db",
+        "type": "pcap",
+        "paths": ["/data/pcap"],
+        "include": ["*.gz"],
+        "exclude": []
+    }
+
+`timefind-indexer` will process all directories and sub-directories in the same
+manner as earlier, except all indexed entries are in one database
+(as opposed to one index file per directory).
+
+See [Index Format/Sqlite3](#sqlite3) for more details.
+
 ## Index Format
 
-Indexes are in CSV format:
+Indexes can either be in CSV or Sqlite3 format.
+
+### CSV
+
+CSV indexes are formatted as follows:
 
     filename,begin_timestamp,end_timestamp,last_modified_time
 
@@ -134,6 +159,27 @@ Again, after searching this index, if an index entry that matches our
 desired time range is a directory (denoted by a relative path), we
 traverse to that directory's index and recursively process until we find
 the matching file entries, if any.
+
+### Sqlite3
+
+The Sqlite3 database is expected to contain a table named `timefind`. The
+database can contain multiple tables, but only the `timefind` table is expected
+and used.
+
+The following table shows the expected column names, types, and corresponding
+Go types:
+
+| column name     | column type             | golang type |
+| ---             | ---                     | ---         |
+| `begin_time`    | INTEGER or REAL or TEXT | []byte      |
+| `end_time`      | INTEGER or REAL or TEXT | []byte      |
+| `last_mod_time` | INTEGER or REAL or TEXT | []byte      |
+| `filename`      | TEXT                    | string      |
+
+Where times are in Unix epoch seconds, with up to nanosecond precision, in the
+UTC timezone.
+
+`filename` contains an absolute path to a source data file.
 
 ## Data Types and Processors
 
