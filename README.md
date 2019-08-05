@@ -10,19 +10,27 @@ requests, patches, and any notes on your usage.
 
 ## quick start
 
-*TODO*
-
-We'll first compile the applications:
-1. Install Go (v1.12+)
-2. Run `make'
-
-See the [Documentation](./docs) for additional details on using
-`timefind-indexer` and `timefind`.
+1. install software dependencies:
+    * Go v1.12+
+    * `gcc`
+2. compile binaries:
+    ```
+    git clone https://github.com/cardi/timefind
+    cd timefind
+    make
+    ```
+   The `timefind-indexer` and `timefind` binaries will be built in the current
+   working directory.
+3. See the [Documentation](./docs) for additional details on using
+   [`timefind-indexer`](./docs/timefind-indexer.md) and
+   [`timefind`](./docs/timefind.md).
 
 ## known issues
 
-* `timefind-indexer` does not recursively process sub-directories containing
-  data when using an Sqlite3 database for an index.
+None at the moment.
+
+Please open an [issue on GitHub](https://github.com/cardi/timefind/issues/new)
+or send email to <calvin@isi.edu> with any bugs.
 
 ## repository structure
 
